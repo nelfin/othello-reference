@@ -109,10 +109,6 @@ int main(int argc, char *argv[])
             messageOut.x = messageOut.y = -1;
             cerr << "CLIENT: has no move" << endl;
         } else if (messageIn.status == GIVE_MOVE) {
-            // pretend to think about the move
-            if (messageIn.timeRemaining > 1.0) {
-                sleep(1);
-            }
             // make a random move
             const set<pair<int, int> > moves = messageIn.board.legalMoves(player);
             assert(!moves.empty());
