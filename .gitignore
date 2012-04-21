@@ -13,4 +13,5 @@
 
 # Binaries
 server
+server_headless
 client
