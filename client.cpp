@@ -56,29 +56,7 @@ int main(int argc, char *argv[])
 
     // initialize client communications
     cerr << "CLIENT: connecting to server " << host << ":" << port << endl;
-
-    int client_socket = socket(PF_INET, SOCK_STREAM, 0);
-    if (client_socket < 0) {
-        cerr << "CLIENT: error initializing client socket (socket)" << endl;
-        exit(-1);
-    }
-
-    struct sockaddr_in server_name;
-    struct hostent *hostinfo;
-    server_name.sin_family = AF_INET;
-    server_name.sin_port = htons(port);
-
-    hostinfo = gethostbyname(host.c_str());
-    if (hostinfo == NULL) {
-        cerr << "CLIENT: unknown host " << host.c_str() << endl;
-        exit(-1);
-    }
-    server_name.sin_addr = *(struct in_addr *)hostinfo->h_addr;
-
-    if (connect(client_socket, (struct sockaddr *)&server_name, sizeof(server_name)) < 0) {
-        cerr << "CLIENT: error connecting to server" << endl;
-        exit(-1);
-    }
+    int client_socket = initClientComms(port, host);
 
     // send connect message to server
     ConnectMessage message(player, player == WHITE ?
@@ -97,18 +75,25 @@ int main(int argc, char *argv[])
             exit(-1);
         }
         messageIn.board.visualize();
+        cerr << "CLIENT: opponents last move was (" << messageIn.x << ", " << messageIn.y << ")" << endl;
 
         if (messageIn.status == ABORT) {
             cerr << "CLIENT: server abort" << endl;
             break;
         } else if (messageIn.status == GAME_END) {
-            cerr << "CLIENT: end of game (winner was " 
+            cerr << "CLIENT: end of game (winner was "
                  << getString(messageIn.winner) << ")" << endl;
             break;
         } else if (messageIn.status == NO_MOVE) {
             messageOut.x = messageOut.y = -1;
             cerr << "CLIENT: has no move" << endl;
         } else if (messageIn.status == GIVE_MOVE) {
+#if 1
+            // pretend to think about the move
+            if (messageIn.timeRemaining > 5.0) {
+                sleep((int)(5 * drand48()));
+            }
+#endif
             // make a random move
             const set<pair<int, int> > moves = messageIn.board.legalMoves(player);
             assert(!moves.empty());

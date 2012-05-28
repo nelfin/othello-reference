@@ -22,9 +22,9 @@
 
 #include "board.h"
 #include "comms.h"
+#include "leader.h"
 
 using namespace std;
-
 
 // Player --------------------------------------------------------------------
 
@@ -53,117 +53,14 @@ public:
     }
 };
 
-// PlayerStatistics ----------------------------------------------------------
-
-class PlayerStatistics {
-public:
-    int gamesPlayed, gamesWon, gamesLost, gamesTied;
-    int pointsFor, pointsAgainst;
-
-public:
-    PlayerStatistics() : gamesPlayed(0), gamesWon(0), gamesLost(0), gamesTied(0),
-        pointsFor(0), pointsAgainst(0) { /* do nothing */ }
-    ~PlayerStatistics() { /* do nothing */ }
-};
-
-// LeaderBoard ---------------------------------------------------------------
-
-class LeaderBoard {
-protected:
-    map<string, PlayerStatistics> stats;
-
-public:
-    LeaderBoard() { /* do nothing */ }
-    virtual ~LeaderBoard() { /* do nothing */ }
-
-    //! clears the statistics
-    void clear() {
-        stats.clear();
-    }
-
-    //! updates leader board with results of last game
-    void update(const string& whiteName, const string& blackName,
-        int whitePieces, int blackPieces) {
-
-        // update each player
-        updatePlayer(whiteName, whitePieces, blackPieces);
-        updatePlayer(blackName, blackPieces, whitePieces);
-    }
-
-    //! displayes the leaderboard
-    virtual void visualize() const {
-        cout << "------------------------------------------------------------------------------\n";
-        cout << "\tP\tW\tL\tT\tF\tA\tName\n";
-        for (map<string, PlayerStatistics>::const_iterator it = stats.begin();
-             it != stats.end(); ++it) {
-            cout << "\t" << it->second.gamesPlayed
-                 << "\t" << it->second.gamesWon
-                 << "\t" << it->second.gamesLost
-                 << "\t" << it->second.gamesTied
-                 << "\t" << it->second.pointsFor
-                 << "\t" << it->second.pointsAgainst
-                 << "\t" << it->first << "\n";
-        }
-        cout << "------------------------------------------------------------------------------\n";
-    }
-
-protected:
-
-    //! updates statistics for each player individually
-    void updatePlayer(const string& name, int playerPieces, int opponentPieces) {
-        map<string, PlayerStatistics>::iterator it = stats.find(name);
-        if (it == stats.end()) {
-            it = stats.insert(it, make_pair(name, PlayerStatistics()));
-        }
-        it->second.gamesPlayed += 1;
-        if (playerPieces == opponentPieces) {
-            it->second.gamesTied += 1;
-        } else if (playerPieces > opponentPieces) {
-            it->second.gamesWon += 1;
-        } else {
-            it->second.gamesLost += 1;
-        }
-        it->second.pointsFor += playerPieces;
-        it->second.pointsAgainst += opponentPieces;
-    }
-};
-
 // comms ---------------------------------------------------------------------
-
-//! Initializes the server to listen for client connections on the given port.
-//!
-int initServerComms(int port)
-{
-    int sock = socket(PF_INET, SOCK_STREAM, 0);
-    if (sock < 0) {
-        cerr << "SERVER: error initializing server socket (socket)" << endl;
-        exit(-1);
-    }
-
-    int t = 1;
-    if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (void*)&t, sizeof(int)) < 0) {
-        cerr << "SERVER: error initializing server socket (setsockopt)" << endl;
-        exit(-1);
-    }
-
-    struct sockaddr_in name;
-    name.sin_family = AF_INET;
-    name.sin_port = htons(port);
-    name.sin_addr.s_addr = htonl(INADDR_ANY);
-    if (bind(sock, (struct sockaddr *)&name, sizeof(name)) < 0) {
-        cerr << "SERVER: error initializing server socket (bind)" << endl;
-        exit(-1);
-    }
-
-    return sock;
-}
 
 //! Waits for two players, one WHITE and one BLACK, to join the game.
 //!
 void waitForPlayers(Player players[2], int server_socket, double time_limit)
 {
     cerr << "SERVER: waiting for clients to connect (press Ctrl-C to quit)..." << endl;
-    
+
     players[0].clear();
     players[1].clear();
 
@@ -176,21 +73,21 @@ void waitForPlayers(Player players[2], int server_socket, double time_limit)
         }
         cerr << "SERVER: accepted a connection from " << inet_ntoa(client.sin_addr)
              << " on port " << client.sin_port << endl;
-        
+
         ConnectMessage message;
         message.receive(socket);
-        
+
         // check that a player hasn't already connected for this side
         if (!players[message.side].connected()) {
             players[message.side].connect(socket, message.name, time_limit);
             cerr << "SERVER: " << message.name << " connected as "
                  << ((message.side == 0) ? "WHITE" : "BLACK") << endl;
-            
+
             // set timeout for receive message
             struct timeval timeout;
             timeout.tv_sec = (int)time_limit;
             timeout.tv_usec = 0;
-            
+
             if (setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(struct timeval)) < 0) {
                 cerr << "SERVER: error initializing server socket (setsockopt)" << endl;
                 exit(-1);
@@ -276,7 +173,7 @@ int main(int argc, char *argv[])
                 cerr << "SERVER: player " << getString(player) << " send error" << endl;
                 forfeit = player;
                 break;
-            }                
+            }
 
             // wait for response
             struct timeval startTime, endTime;
@@ -321,6 +218,10 @@ int main(int argc, char *argv[])
             std::swap(player, opponent);
             cerr << "SERVER: time remaining " << players[0].time_remaining << " and "
                  << players[1].time_remaining << endl;
+
+            // update opponents last move
+            messageOut.x = messageIn.x;
+            messageOut.y = messageIn.y;
         }
 
         // find winner and update leader board

@@ -41,6 +41,15 @@ typedef enum { GIVE_MOVE = 0, //!< player needs to return a move
                ABORT //!< the game has ended abnormally (communications error)
 } GameStatus;
 
+// Initialization ------------------------------------------------------------
+
+//! initializes the client to connect to a server on the given host and port
+int initClientComms(uint16_t port = DEFAULT_PORT, 
+    const std::string& host = DEFAULT_HOST);
+
+//! initializes the server to listen for client connections on the given port
+int initServerComms(uint16_t port = DEFAULT_PORT);
+
 // CommsMessages -------------------------------------------------------------
 
 class CommsMessage {

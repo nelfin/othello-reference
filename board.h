@@ -70,7 +70,7 @@ class Board {
     //! return the state at a given position
     const BoardState& getState(int x, int y) const {
         assert((x >= 0) && (x < BOARD_SIZE) && (y >= 0) && (y < BOARD_SIZE));
-        return _state[x][y];
+        return _state[y][x];
     }
 
     //! make a move (either white or black) returning true

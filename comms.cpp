@@ -19,6 +19,62 @@
 
 using namespace std;
 
+// Initialization ------------------------------------------------------------
+
+int initClientComms(uint16_t port, const string& host)
+{
+    int client_socket = socket(PF_INET, SOCK_STREAM, 0);
+    if (client_socket < 0) {
+        cerr << "COMMS: error initializing client socket (socket)" << endl;
+        exit(-1);
+    }
+
+    struct sockaddr_in server_name;
+    struct hostent *hostinfo;
+    server_name.sin_family = AF_INET;
+    server_name.sin_port = htons(port);
+
+    hostinfo = gethostbyname(host.c_str());
+    if (hostinfo == NULL) {
+        cerr << "COMMS: unknown host " << host.c_str() << endl;
+        exit(-1);
+    }
+    server_name.sin_addr = *(struct in_addr *)hostinfo->h_addr;
+
+    if (connect(client_socket, (struct sockaddr *)&server_name, sizeof(server_name)) < 0) {
+        cerr << "COMMS: error connecting to server" << endl;
+        exit(-1);
+    }
+
+    return client_socket;
+}
+
+int initServerComms(uint16_t port)
+{
+    int sock = socket(PF_INET, SOCK_STREAM, 0);
+    if (sock < 0) {
+        cerr << "COMMS: error initializing server socket (socket)" << endl;
+        exit(-1);
+    }
+
+    int t = 1;
+    if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (void*)&t, sizeof(int)) < 0) {
+        cerr << "COMMS: error initializing server socket (setsockopt)" << endl;
+        exit(-1);
+    }
+
+    struct sockaddr_in name;
+    name.sin_family = AF_INET;
+    name.sin_port = htons(port);
+    name.sin_addr.s_addr = htonl(INADDR_ANY);
+    if (bind(sock, (struct sockaddr *)&name, sizeof(name)) < 0) {
+        cerr << "COMMS: error initializing server socket (bind)" << endl;
+        exit(-1);
+    }
+
+    return sock;
+}
+
 // CommsMessages -------------------------------------------------------------
 
 CommsMessage::CommsMessage()
@@ -163,7 +219,7 @@ bool ServerMessage::send(int socket) const
     memcpy(&buffer[pos], &n, sizeof(uint32_t));
     pos += sizeof(uint32_t);
 
-    board.serialize(&buffer[pos]);    
+    board.serialize(&buffer[pos]);
 
     // send the message
     if (write(socket, buffer, nBytes) < 0) {
